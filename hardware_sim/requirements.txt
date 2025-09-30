@@ -1,0 +1,5 @@
+platformio
+numpy
+scipy
+matplotlib
+pandas

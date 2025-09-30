@@ -1,0 +1,3 @@
+[submodule "hardware_sim/lib/CMSIS-DSP"]
+	path = hardware_sim/lib/CMSIS-DSP
+	url = https://github.com/ARM-software/CMSIS-DSP.git
