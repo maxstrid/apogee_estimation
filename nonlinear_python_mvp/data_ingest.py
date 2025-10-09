@@ -35,6 +35,6 @@ class FlightDataInterpolator:
         return jnp.interp(t, self.times, self.velocity_curve, left=jnp.nan, right=jnp.nan)
 
     def acceleration(self, t):
-        return jnp.interp(t, self.times, self.velocity_curve, left=jnp.nan, right=jnp.nan)
+        return jnp.interp(t, self.times, self.acceleration_curve, left=jnp.nan, right=jnp.nan)
 
         

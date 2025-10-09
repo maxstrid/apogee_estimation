@@ -34,7 +34,8 @@ class Ekf:
 
         self.X = self.X + K @ (Z - self.dynamics.h(self.t, self.X))
 
-        self.P = (jnp.eye(self.P.shape[0]) - K @ H) @ self.P
+        I_KH = jnp.eye(self.P.shape[0]) - K @ H
+        self.P = I_KH @ self.P @ I_KH.transpose() + K @ R @ K.transpose()
 
     def __discretize_AQ(self, A, Q, dt):
         n = A.shape[0]

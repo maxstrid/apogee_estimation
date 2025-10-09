@@ -27,9 +27,6 @@ class Dynamics:
 
         self.mt_interpolator = mt_interpolator
 
-
-        
-
     def a(self, x, t) -> float:
         F_thrust = self.mt_interpolator.thrust(t)
 
@@ -39,7 +36,7 @@ class Dynamics:
 
         F_external = x[2]
 
-        F_drag = 0.5 * self.cD * self.rho * self.A_ref * x[1]**2 * jnp.sign(x[1])
+        F_drag = 0.5 * self.cD * self.rho * self.A_ref * x[1]**2 * jax.nn.soft_sign(x[1])
 
         return (F_thrust - F_drag - F_weight + F_external)/mass
 

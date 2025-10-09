@@ -6,7 +6,7 @@ from jax_dynamics import Dynamics
 import jax.numpy as jnp
 import numpy as np
 
-def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, external_force, apogee_estimates):
+def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates):
     fig1, axes1 = plt.subplots(2, 1, constrained_layout=True)
 
     # Plot altitude
@@ -36,7 +36,8 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
     axes2[1].set_ylabel('Velocity (m/s)')
     axes2[1].set_title('Velocity vs Time')
 
-    axes2[2].plot(time, acceleration, color='red')
+    axes2[2].plot(time, acceleration, color='red', label="Acceleration")
+    axes2[2].plot(time, acceleration_est, color='red', linestyle="--", label="Estimated Acceleration")
     axes2[2].set_xlabel('Time (s)')
     axes2[2].set_ylabel('Acceleration (m/s^2)')
     axes2[2].set_title('Acceleration vs Time')
@@ -84,7 +85,7 @@ def main():
     #traj_velocity = trajectory[:, 1]
 
     X_initial = jnp.array([data_interpolator.altitude(0.0), data_interpolator.velocity(0.0), 0.0])
-    P_initial = jnp.diag(jnp.array([1e-2, 1e-9, 1e-5]))
+    P_initial = jnp.diag(jnp.array([1e-2, 1e-5, 1e-5]))
 
     Q = jnp.diag(jnp.array([1.0, 1.0, 0.001]))
 
@@ -92,13 +93,14 @@ def main():
 
     altitude_est = []
     velocity_est = []
+    acceleration_est = []
 
     external_force = []
 
     apogee_estimates = []
 
 
-    for _ in range(int(15 * (1 / dt))):
+    for _ in range(int(13 * (1 / dt))):
         print(t)
         ekf.predict(dt)
 
@@ -111,6 +113,7 @@ def main():
         altitude_est.append(ekf.X[0])
         velocity_est.append(ekf.X[1])
         external_force.append(ekf.X[2])
+        acceleration_est.append(dynamics.a(ekf.X, t))
 
         thrust.append(mt_interpolator.thrust(t))
         mass.append(mt_interpolator.mass(t))
@@ -118,9 +121,10 @@ def main():
         altitude.append(data_interpolator.altitude(t))
         velocity.append(data_interpolator.velocity(t))
         acceleration.append(data_interpolator.acceleration(t))
+
         if t > 10.0:
             x0 = ekf.X
-            trajectory = dynamics.integrate(x0, t, 15, dt=0.1)
+            trajectory = dynamics.integrate(x0, t, 13, dt=0.1)
 
             altitude_traj = trajectory[:, 0]
 
@@ -128,13 +132,13 @@ def main():
 
             apogee_estimates.append(apogee_est)
         else:
-            apogee_estimates.append(jnp.nan)
+            apogee_estimates.append(730)
 
         time.append(t)
 
         t += dt
 
-    plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, external_force, apogee_estimates)
+    plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates)
 
     
 if __name__ == "__main__":
