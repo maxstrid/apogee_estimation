@@ -1,0 +1,5 @@
+casadi
+matplotlib
+pandas
+jax
+diffrax
