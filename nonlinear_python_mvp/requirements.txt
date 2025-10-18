@@ -3,3 +3,4 @@ matplotlib
 pandas
 jax
 diffrax
+jaxfilter @ git+https://github.com/justinT21/jaxfilter.git@fbaaa34508caee054a9a1f13321346329f64464d
