@@ -27,7 +27,6 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
     fig2, axes2 = plt.subplots(5, 1, constrained_layout=True)
 
     axes2[0].plot(time, altitude, color='green', label="Altitude")
-    # axes2[0].plot(time, traj_altitude, color='red', linestyle="--", label="Estimated Altitude")
     axes2[0].plot(time, altitude_est, color='blue', linestyle="--", label="Estimated Altitude")
     axes2[0].set_xlabel('Time (s)')
     axes2[0].set_ylabel('Altitude (m)')
@@ -35,7 +34,6 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
     axes2[0].legend()
 
     axes2[1].plot(time, velocity, label="Velocity")
-    # axes2[1].plot(time, traj_velocity, color='red', linestyle="--", label="Estimated Velocity")
     axes2[1].plot(time, velocity_est, color='blue', linestyle="--", label="Estimated Velocity")
     axes2[1].set_xlabel('Time (s)')
     axes2[1].set_ylabel('Velocity (m/s)')
@@ -82,14 +80,6 @@ def main():
     rho = 1.0
 
     dynamics = Dynamics(cD, A_ref, rho, mt_interpolator)
-    #dynamics.compute_jacobians()
-    #x0 = jnp.array([data_interpolator.altitude(0.0), data_interpolator.velocity(0.0), 0.0])  # initial position, velocity, external force
-    #num = int((1.0 / dt) * 30)
-    #trajectory = dynamics.integrate(x0, 0, 30)
-
-
-    #traj_altitude = trajectory[:, 0]
-    #traj_velocity = trajectory[:, 1]
 
     X_initial = jnp.array([data_interpolator.altitude(0.0), data_interpolator.velocity(0.0), 0.0])
     P_initial = jnp.diag(jnp.array([1e-2, 1e-5, 1e-5]))
@@ -138,47 +128,7 @@ def main():
     external_force = X[:, 2]
     apogee_estimates = series_values[5]
 
-    '''
-    for _ in range(int(13 * (1 / dt))):
-        print(t)
-        ekf.predict(dt)
-
-        Z = jnp.array([data_interpolator.altitude(t), data_interpolator.acceleration(t)])
-
-        R = jnp.diag(jnp.array([1.0, 10.0]))
-
-        ekf.update(Z, R)
-
-        altitude_est.append(ekf.X[0])
-        velocity_est.append(ekf.X[1])
-        external_force.append(ekf.X[2])
-        acceleration_est.append(dynamics.a(ekf.X, t))
-
-        thrust.append(mt_interpolator.thrust(t))
-        mass.append(mt_interpolator.mass(t))
-
-        altitude.append(data_interpolator.altitude(t))
-        velocity.append(data_interpolator.velocity(t))
-        acceleration.append(data_interpolator.acceleration(t))
-
-        if t > 10.0:
-            x0 = ekf.X
-            trajectory = dynamics.integrate(x0, t, 13, dt=0.1)
-
-            altitude_traj = trajectory[:, 0]
-
-            apogee_est = jnp.max(altitude_traj)
-
-            apogee_estimates.append(apogee_est)
-        else:
-            apogee_estimates.append(730)
-
-        time.append(t)
-
-        t += dt'''
-
     plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates)
-
     
 if __name__ == "__main__":
     main()
