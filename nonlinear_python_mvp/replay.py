@@ -2,13 +2,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pandas.core.series import series_sub_kwargs
 from data_ingest import FlightDataInterpolator, MassThrustInterpolator
-from jaxfilter import ekf
+from jaxfilter import ekf, rts_smoother
 from jax_dynamics import Dynamics
 import jax.numpy as jnp
 import jax
 import numpy as np
 
-def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates):
+def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates, altitude_est_rts, velocity_est_rts, external_force_rts, apogee_estimates_rts):
     fig1, axes1 = plt.subplots(2, 1, constrained_layout=True)
 
     # Plot altitude
@@ -28,6 +28,7 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
 
     axes2[0].plot(time, altitude, color='green', label="Altitude")
     axes2[0].plot(time, altitude_est, color='blue', linestyle="--", label="Estimated Altitude")
+    axes2[0].plot(time[:-1], altitude_est_rts, color='green', label="Estimated Altitude")
     axes2[0].set_xlabel('Time (s)')
     axes2[0].set_ylabel('Altitude (m)')
     axes2[0].set_title('Altitude vs Time')
@@ -35,6 +36,7 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
 
     axes2[1].plot(time, velocity, label="Velocity")
     axes2[1].plot(time, velocity_est, color='blue', linestyle="--", label="Estimated Velocity")
+    axes2[1].plot(time[:-1], velocity_est_rts, color='green', label="Estimated Velocity")
     axes2[1].set_xlabel('Time (s)')
     axes2[1].set_ylabel('Velocity (m/s)')
     axes2[1].set_title('Velocity vs Time')
@@ -48,12 +50,14 @@ def plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, vel
     axes2[2].legend()
 
     axes2[3].plot(time, external_force, color='red', linestyle="--")
+    axes2[3].plot(time[:-1], external_force_rts, color='green')
     axes2[3].set_xlabel('Time (s)')
     axes2[3].set_ylabel('External Force (N)')
     axes2[3].set_title('External Force vs Time')
     axes2[3].legend()
 
     axes2[4].plot(time, apogee_estimates, color='blue', linestyle='--')
+    axes2[4].plot(time[:-1], apogee_estimates_rts, color='green')
     axes2[4].set_xlabel('Time (s)')
     axes2[4].set_ylabel('Apogee Estimate (m)')
     axes2[4].set_title('Apogee Estimate vs Time')
@@ -110,9 +114,18 @@ def main():
 
         apogee_estimate = jax.lax.cond(jnp.logical_and(t > 10.0, t < 13.0), calculate_apogee, apogee_default, X_predict, t)
 
-        return (t, filter), (t, X_predict, Z, U, dynamics.a(X_predict, U), apogee_estimate, vel)
+        return (t, filter), (t, X_predict, Z, U, dynamics.a(X_predict, U), apogee_estimate, vel, filter.X_predicted, filter.P, filter.P_predicted, U)
 
-    _, series_values = jax.lax.scan(f=loop, init=(0.0, filter), xs=(data_interpolator.times, jnp.stack([data_interpolator.altitude_curve, data_interpolator.acceleration_curve], axis=1), data_interpolator.velocity_curve))
+    (_, filter), series_values = jax.lax.scan(f=loop, init=(0.0, filter), xs=(data_interpolator.times, jnp.stack([data_interpolator.altitude_curve, data_interpolator.acceleration_curve], axis=1), data_interpolator.velocity_curve))
+    smoother = rts_smoother.Rts(filter.F_c, filter.num_states)
+    X_rts,_ = smoother.run(data_interpolator.times, series_values[1], series_values[7], series_values[8], series_values[9], series_values[10], filter.Q_c, stable=True)
+    def loop_predict(t, X_predict):
+        apogee_estimate = jax.lax.cond(jnp.logical_and(t > 10.0, t < 13.0), calculate_apogee, apogee_default, X_predict, t)
+
+        return apogee_estimate
+
+    apogee_estimates_rts = jax.vmap(loop_predict, (0, 0), 0)(data_interpolator.times[:-1], X_rts)
+
     time = series_values[0]
     X = series_values[1]
     Z = series_values[2]
@@ -123,12 +136,15 @@ def main():
     velocity = series_values[6] # todo: fix this
     acceleration = Z[:, 1]
     altitude_est = X[:, 0]
+    altitude_est_rts = X_rts[:, 0]
     velocity_est = X[:, 1]
+    velocity_est_rts = X_rts[:, 1]
     acceleration_est = series_values[4]
     external_force = X[:, 2]
+    external_force_rts = X_rts[:, 2]
     apogee_estimates = series_values[5]
 
-    plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates)
+    plot(time, thrust, mass, altitude, velocity, acceleration, altitude_est, velocity_est, acceleration_est, external_force, apogee_estimates, altitude_est_rts, velocity_est_rts, external_force_rts, apogee_estimates_rts)
     
 if __name__ == "__main__":
     main()
