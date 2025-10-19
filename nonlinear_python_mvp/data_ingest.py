@@ -13,10 +13,10 @@ class MassThrustInterpolator:
         self.times = jnp.array(df['time'].values)
 
     def mass(self, t: float):
-        return jnp.interp((t + 0.1), self.times, self.mass_curve, left=jnp.nan, right=jnp.nan) / 1000.0
+        return jnp.interp((t + 0.1), self.times, self.mass_curve) / 1000.0
 
     def thrust(self, t: float):
-        return jnp.interp((t + 0.1), self.times, self.thrust_curve, left=jnp.nan, right=jnp.nan)
+        return jnp.interp((t + 0.1), self.times, self.thrust_curve)
 
 class FlightDataInterpolator:
     def __init__(self, filename) -> None:
@@ -29,12 +29,12 @@ class FlightDataInterpolator:
         self.times = jnp.array(df['time'].values)
 
     def altitude(self, t):
-        return jnp.interp(t, self.times, self.altitude_curve, left=jnp.nan, right=jnp.nan)
+        return jnp.interp(t, self.times, self.altitude_curve)
 
     def velocity(self, t):
-        return jnp.interp(t, self.times, self.velocity_curve, left=jnp.nan, right=jnp.nan)
+        return jnp.interp(t, self.times, self.velocity_curve)
 
     def acceleration(self, t):
-        return jnp.interp(t, self.times, self.acceleration_curve, left=jnp.nan, right=jnp.nan)
+        return jnp.interp(t, self.times, self.acceleration_curve)
 
         
