@@ -32,7 +32,7 @@ constants = RocketPlantConstants(
     dt=dt,
 )
 
-def base_sim():
+def base_sim(args):
     def base_plot(times, y_positions, y_drag_positions, y_max, y_drag_max):
         fig, axes = plt.subplots(1, 1, constrained_layout=True)
 
@@ -61,15 +61,18 @@ def base_sim():
 
     base_plot(times, y_positions, y_drag_positions, y_max, y_drag_max)
 
-def nmpc_sim():
-    def nmpc_plot(times, y_positions, y_mpc_positions):
-        fig, axes = plt.subplots(2, 1, constrained_layout=True)
+def nmpc_sim(args):
+    def nmpc_plot(times, y_positions, y_mpc_positions, y_max, y_mpc_max, y_goal):
+        fig, axes = plt.subplots(1, 1, constrained_layout=True)
 
-        axes[0].plot(times, y_positions, color='green', label="Altitude")
-        axes[0].plot(times, y_mpc_positions, color='green', linestyle="--", label="MPC Policy Controlled Altitude")
-        axes[0].set_xlabel('Time (s)')
-        axes[0].set_ylabel('Altitude (m)')
-        axes[0].set_title('Altitude vs Time')
+        axes.plot(times, y_positions, color='green', label="Altitude")
+        axes.plot(times, y_mpc_positions, color='orange' , label="MPC Policy Controlled Altitude")
+        axes.axhline(y=y_max, color='red', linestyle='--', linewidth=1.5, label=f'Normal Peak = {y_max:.2f}')
+        axes.axhline(y=y_goal, color='purple', linestyle='--', linewidth=1.5, label=f'Goal Peak = {y_goal:.2f}')
+        axes.axhline(y=y_mpc_max, color='blue', linestyle='--', linewidth=1.5, label=f'MPC Peak = {y_mpc_max:.2f}')
+        axes.set_xlabel('Time (s)')
+        axes.set_ylabel('Altitude (m)')
+        axes.set_title('Altitude vs Time')
 
         plt.legend()
         plt.show()
@@ -83,7 +86,8 @@ def nmpc_sim():
             initial_u_guess,
             1000.0, # Q
             jnp.diag(jnp.array([1.0, 1.0])), # R
-            850.0 # Goal apogee
+            args.goal, # Goal apogee
+            steps=args.iterations,
     )
 
     times, trajectory = plant.integrate(jnp.array([0.0, 0.0]), 13.0)
@@ -92,20 +96,26 @@ def nmpc_sim():
     y_positions = trajectory[:, 1]
     y_mpc_positions = mpc_trajectory[:, 1]
 
-    nmpc_plot(times, y_positions, y_mpc_positions)
+    y_max = jnp.max(y_positions)
+    y_mpc_max = jnp.max(y_mpc_positions)
+
+    nmpc_plot(times, y_positions, y_mpc_positions, y_max, y_mpc_max, args.goal)
 
 def main():
     parser = argparse.ArgumentParser(description="Run simulations.")
-    parser.add_argument("sim", choices=["nmpc", "base"], help="Which simulation to run")
+    subparsers = parser.add_subparsers(dest="sim", required=True, help="Which simulation to run")
+
+    parser_nmpc = subparsers.add_parser("nmpc", help="Run the NMPC simulation")
+    parser_nmpc.add_argument("--iterations", type=int, default=300, help="Number of iterations")
+    parser_nmpc.add_argument("--goal", type=int, default=850, help="Goal apogee to reach")
+    parser_nmpc.set_defaults(func=nmpc_sim)
+
+    parser_base = subparsers.add_parser("base", help="Run the Base simulation")
+    parser_base.set_defaults(func=base_sim)
+
     args = parser.parse_args()
 
-    sims = {
-        "nmpc": nmpc_sim,
-        "base": base_sim,
-    }
-
-    sims[args.sim]()
-    pass
+    args.func(args)
 
 if __name__ == "__main__":
     main()
