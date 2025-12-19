@@ -7,22 +7,7 @@ import jax.numpy as jnp
 
 import matplotlib.pyplot as plt
 
-def plot(times, y_positions, y_drag_positions, cds, arefs):
-    fig, axes = plt.subplots(2, 1, constrained_layout=True)
 
-    axes[0].plot(times, y_positions, color='green', label="Altitude")
-    # axes[0].plot(times, y_drag_positions, color='green', linestyle="--", label="Full Drag Altitude")
-    axes[0].set_xlabel('Time (s)')
-    axes[0].set_ylabel('Altitude (m)')
-    axes[0].set_title('Altitude vs Time')
-
-    #axes[1].plot(times, cds, color='green', label="Altitude")
-    #axes[1].plot(times, arefs, color='green', linestyle="--", label="Full Drag Altitude")
-    #axes[1].set_xlabel('Time (s)')
-    #axes[1].set_ylabel('Altitude (m)')
-    #axes[1].set_title('Altitude vs Time')
-
-    plt.show()
 
 dt = 0.005
 
@@ -37,58 +22,86 @@ dynamics_constants=DynamicsConstants(
     r_cp=0.112,
 )
 
-def normal_sim():
-    constants = RocketPlantConstants(
-        dynamics_constants=dynamics_constants,
+constants = RocketPlantConstants(
+    dynamics_constants=dynamics_constants,
 
-        initial_velocity=136,
-        initial_position=150,
+    initial_velocity=136,
+    initial_position=150,
 
-        initial_theta=0.1,
-        dt=dt,
-    )
+    initial_theta=0.1,
+    dt=dt,
+)
+
+def base_sim():
+    def base_plot(times, y_positions, y_drag_positions, y_max, y_drag_max):
+        fig, axes = plt.subplots(1, 1, constrained_layout=True)
+
+        axes.plot(times, y_positions, color='green', label="Altitude")
+        axes.plot(times, y_drag_positions, color='green', linestyle="--", label="Full Drag Altitude")
+        plt.axhline(y=y_max, color='red', linestyle='--', linewidth=1.5, label=f'Normal Peak = {y_max:.2f}')
+        plt.axhline(y=y_drag_max, color='blue', linestyle='--', linewidth=1.5, label=f'Drag Peak = {y_drag_max:.2f}')
+        axes.set_xlabel('Time (s)')
+        axes.set_ylabel('Altitude (m)')
+        axes.set_title('Altitude vs Time')
+
+        plt.legend()
+        plt.show()
 
     plant = RocketPlant(constants)
+    u_seq = jnp.full((int(13.0 / dt), 2), jnp.array([0.445, 0.00948]))
 
-    solver = MPCSolver(plant.dynamics)
-
-    x_positions = []
-    y_positions = []
-    y_drag_positions = []
-
-    x_velocities = []
-    y_velocities = []
-
-    thetas = []
-
-    times = []
-
-    cds = []
-    arefs = []
-
-    t = 0.0
-
-    #initial_apogee_estimate = plant.dynamics.estimate_apogee(plant.x, jnp.array([0.0, 0.0]))
-    #print(initial_apogee_estimate)
-    initial_u_guess = jnp.zeros((2500, 2))
-    u_seq = solver.solve(plant.x, initial_u_guess, 1000.0, jnp.array([[1.0000, 0.0], [0.0, 1.0000]]), 850.0)
-
-
-    times, trajectory = plant.integrate_over_u_seq(u_seq)
-
+    times, trajectory = plant.integrate(jnp.array([0.0, 0.0]), 13.0)
     y_positions = trajectory[:, 1]
 
-    print(jnp.max(y_positions))
+    _, drag_trajectory = plant.integrate_over_u_seq(u_seq)
+    y_drag_positions = drag_trajectory[:, 1]
 
-    plot(times, y_positions, y_drag_positions, cds, arefs)
+    y_max = jnp.max(y_positions)
+    y_drag_max = jnp.max(y_drag_positions)
+
+    base_plot(times, y_positions, y_drag_positions, y_max, y_drag_max)
+
+def nmpc_sim():
+    def nmpc_plot(times, y_positions, y_mpc_positions):
+        fig, axes = plt.subplots(2, 1, constrained_layout=True)
+
+        axes[0].plot(times, y_positions, color='green', label="Altitude")
+        axes[0].plot(times, y_mpc_positions, color='green', linestyle="--", label="MPC Policy Controlled Altitude")
+        axes[0].set_xlabel('Time (s)')
+        axes[0].set_ylabel('Altitude (m)')
+        axes[0].set_title('Altitude vs Time')
+
+        plt.legend()
+        plt.show()
+
+    plant = RocketPlant(constants)
+    solver = MPCSolver(plant.dynamics)
+
+    initial_u_guess = jnp.zeros((int(13.0 / dt), 2))
+    u_seq = solver.solve(
+            plant.x, # Initial X
+            initial_u_guess,
+            1000.0, # Q
+            jnp.diag(jnp.array([1.0, 1.0])), # R
+            850.0 # Goal apogee
+    )
+
+    times, trajectory = plant.integrate(jnp.array([0.0, 0.0]), 13.0)
+    _, mpc_trajectory = plant.integrate_over_u_seq(u_seq)
+
+    y_positions = trajectory[:, 1]
+    y_mpc_positions = mpc_trajectory[:, 1]
+
+    nmpc_plot(times, y_positions, y_mpc_positions)
 
 def main():
     parser = argparse.ArgumentParser(description="Run simulations.")
-    parser.add_argument("sim", choices=["normal"], help="Which simulation to run")
+    parser.add_argument("sim", choices=["nmpc", "base"], help="Which simulation to run")
     args = parser.parse_args()
 
     sims = {
-        "normal": normal_sim,
+        "nmpc": nmpc_sim,
+        "base": base_sim,
     }
 
     sims[args.sim]()

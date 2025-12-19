@@ -7,6 +7,16 @@ from dataclasses import dataclass
 
 g = 9.81
 
+def rk4_xu(f, x, u, dt):
+    h = dt
+
+    k1 = f(x, u)
+    k2 = f(x + h * (k1/2.0), u)
+    k3 = f(x + h * (k2/2.0), u)
+    k4 = f(x + h * k3, u)
+
+    return x + (h/6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
 @jax.tree_util.register_pytree_node_class
 @dataclass
 class DynamicsConstants:
@@ -212,11 +222,4 @@ class Dynamics:
         return terminal_cost + integral_cost
     
     def _rk4_step(self, x, u, dt):
-        h = dt
-
-        k1 = self.f(x, u)
-        k2 = self.f(x + h * (k1/2.0), u)
-        k3 = self.f(x + h * (k2/2.0), u)
-        k4 = self.f(x + h * k3, u)
-
-        return x + (h/6.0) * (k1 + 2*k2 + 2*k3 + k4)
+        return rk4_xu(self.f, x, u, dt)
