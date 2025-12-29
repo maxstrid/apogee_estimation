@@ -58,13 +58,13 @@ class Dynamics:
         self.constants = constants
 
     def a_x(self, x, u):
-        return self.__a(x, u)[0]
+        return self._a(x, u)[0]
 
     def a_y(self, x, u):
-        return self.__a(x, u)[1]
+        return self._a(x, u)[1]
 
     def alpha(self, x, u):
-        return self.__a(x, u)[2]
+        return self._a(x, u)[2]
 
     def tree_flatten(self):
         children = (self.constants,)
@@ -82,19 +82,28 @@ class Dynamics:
 
         omega = x[7]
 
-        a = self.__a(x, u)
+        a = self._a(x, u)
 
         return jnp.array([v_x, v_y, a[0], a[1], 0, 0, omega, a[2]])
     
     # h defined such that z = h(x, u)
     def h(self, x, u):
-        a = self.__a(x, u)
+        a = self._a(x, u)
 
         omega = x[7]
 
         p_y = x[1]
 
-        return jnp.array([p_y, a[0], a[1], omega])
+        theta = x[6]
+
+        cos_theta = jnp.cos(theta)
+        sin_theta = jnp.sin(theta)
+
+        R = jnp.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+
+        rotated_accel = R.T @ jnp.array([a[0], a[1]])
+
+        return jnp.array([p_y, rotated_accel[0], rotated_accel[1], omega])
     
     # Integrates our state from x0 for t
     def integrate(self, x0, u, t, dt=0.005):
@@ -144,7 +153,7 @@ class Dynamics:
         return jax.jacrev(self.h, argnums=0)(x, u)
 
     # Returns (a_x, a_y, alpha)
-    def __a(self, x, u):
+    def _a(self, x, u):
         v_x = x[2]
         v_y = x[3]
 

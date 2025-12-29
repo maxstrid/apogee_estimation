@@ -21,7 +21,7 @@ class RocketPlantConstants:
 
 # This class handles the main simulation of the rocket dynamics using the Dynamics class
 # All we are simulating is the time after coast
-class RocketPlant:
+class RocketPlant2D:
     def __init__(self, constants: RocketPlantConstants) -> None:
         self.constants = constants
 
