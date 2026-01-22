@@ -2,4 +2,4 @@ casadi
 matplotlib
 pandas
 jax
-diffrax
+jaxfilter @ git+https://github.com/justinT21/jaxfilter.git@35f5060a4869b4a140ae0fa24263fc7171bce4fc
